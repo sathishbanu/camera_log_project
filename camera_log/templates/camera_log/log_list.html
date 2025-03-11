@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Logs Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 250px;
+            background-color: #343a40;
+            padding-top: 20px;
+        }
+        .sidebar a {
+            padding: 10px 20px;
+            text-decoration: none;
+            font-size: 18px;
+            color: white;
+            display: block;
+            margin-bottom: 10px;
+        }
+        .sidebar a:hover {
+            background-color: #007bff;
+            color: white;
+        }
+        .content {
+            margin-left: 250px;
+            padding: 20px;
+        }
+        .card {
+            border-radius: 10px;
+        }
+        .card-header {
+            background-color: #007bff;
+            color: white;
+        }
+        .card-body {
+            background-color: #f8f9fa;
+        }
+        .table thead {
+            background-color: #007bff;
+            color: white;
+        }
+        footer {
+            background-color: #343a40;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h4 class="text-white text-center mb-4">Dashboard</h4>
+        <a href="#">Home</a>
+        <a href="#">Logs</a>
+        <a href="#">Settings</a>
+        <a href="#">Help</a>
+    </div>
+
+    <!-- Content Section -->
+    <div class="content">
+        <!-- Header -->
+        <header class="bg-primary text-white text-center py-4 mb-4">
+            <h1>Camera Logs</h1>
+        </header>
+
+        <!-- Dashboard Cards -->
+        <div class="container-fluid">
+            <div class="row mb-4">
+                <!-- Camera Status Card -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Camera Status</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>AI Not Working (Red): <strong>{{ camera_status.ai_not_working }}</strong></p>
+                            <p>Camera Inactive (Yellow): <strong>{{ camera_status.camera_inactive }}</strong></p>
+                        </div>
+                    </div>
+                </div>
+            
+                <!-- Logs Overview Card -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Logs Overview</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Total Logs: <strong>{{ logs_overview.total_logs }}</strong></p>
+                            <p>Active Cameras: <strong>{{ logs_overview.active_cameras }}</strong></p>
+                        </div>
+                    </div>
+                </div>
+            
+                <!-- Recent Activity Card -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Recent Activity</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_activity %}
+                            <p>Last Activity: <strong>{{ recent_activity.timestamp }}</strong></p>
+                            <p>Recent Status: <strong>{{ recent_activity.status }}</strong></p>
+                            {% else %}
+                            <p>No recent activity available.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Filter Form -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <form method="get" action="" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="start_date" class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="end_date" class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="camera_id" class="form-label">Camera ID</label>
+                            <select class="form-select" id="camera_id" name="camera_id" multiple>
+                                <option value="">Select a Camera</option>
+                                {% for camera in all_cameras %}
+                                    <option value="{{ camera }}" {% if camera in selected_cameras %}selected{% endif %}>{{ camera }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="">All Statuses</option>
+                                <option value="AI not working (Red)" {% if status == "AI not working (Red)" %}selected{% endif %}>AI not working (Red)</option>
+                                <option value="Camera inactive (Yellow)" {% if status == "Camera inactive (Yellow)" %}selected{% endif %}>Camera inactive (Yellow)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary">Filter</button>
+                            <button type="button" class="btn btn-warning ms-2" id="clearButton">Clear</button>
+                            <a href="{% url 'download_logs' %}?start_date={{ start_date }}&end_date={{ end_date }}&camera_id={{ selected_cameras|join:',' }}&status={{ status }}" class="btn btn-success ms-2">Download Excel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Logs Table -->
+            <div class="table-responsive">
+                <table id="cameraLog" class="table table-bordered table-striped">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Camera ID</th>
+                            <th>Status</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Duration (mins)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>{{ log.timestamp }}</td>
+                            <td>{{ log.camera_id }}</td>
+                            <td>{{ log.status }}</td>
+                            <td>{{ log.start_time }}</td>
+                            <td>{{ log.end_time }}</td>
+                            <td>{{ log.duration }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No logs found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2024 Camera Logs. All rights reserved.</p>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#cameraLog').DataTable({
+                "pageLength": 10,
+                "lengthMenu": [10, 25, 50, 100],
+                "ordering": true,
+                "searching": true,
+                "info": true,
+            });
+        });
+
+        // Clear button functionality to reset filters and reload the page
+        document.getElementById('clearButton').addEventListener('click', function () {
+            const baseUrl = window.location.href.split('?')[0]; // Base URL
+            window.location.href = baseUrl; // Reload page without query parameters
+        });
+    </script>
+</body>
+</html>
